@@ -1,0 +1,702 @@
+[
+  {
+    "id": "etl-01",
+    "category": "etlTalend",
+    "difficulty": "senior",
+    "prompt": "In Talend, you need to reuse a database connection's credentials across many jobs without hardcoding them in each job. What's the best practice?",
+    "options": [
+      "Hardcode host/user/password in each tDBConnection component",
+      "Store connection details in a centralized Context Group linked to Context Variables per environment (dev/qa/prod)",
+      "Use tFixedFlowInput to inject credentials at runtime",
+      "Store credentials directly in the job's .item XML file"
+    ],
+    "correctIndex": 1,
+    "explanation": "Context Groups/Variables externalize environment-specific config (host, port, credentials) so you can switch environments without touching job logic, which is Talend's recommended pattern for multi-environment deployments."
+  },
+  {
+    "id": "etl-02",
+    "category": "etlTalend",
+    "difficulty": "senior",
+    "prompt": "A Talend job needs to call a shared, reusable subjob multiple times with different parameters. Which component invokes another job as a subprocess?",
+    "options": [
+      "tRunJob",
+      "tParallelize",
+      "tFlowToIterate",
+      "tPreJob"
+    ],
+    "correctIndex": 0,
+    "explanation": "tRunJob executes another Talend job as a child process, optionally passing context parameters, enabling modular, reusable job design."
+  },
+  {
+    "id": "etl-03",
+    "category": "etlTalend",
+    "difficulty": "senior",
+    "prompt": "A Talend job loading 50M rows from Oracle into a warehouse is very slow, using tMap with a lookup joined against 10M reference rows held in memory. What is the most likely fix?",
+    "options": [
+      "Switch the lookup model from Load Once in-memory to Reload at each row",
+      "Reduce or filter the lookup dataset, index the join key, or push the join down to the database (ELT) instead of holding 10M rows in memory inside tMap",
+      "Add more tMap components in series",
+      "Convert tMap to tJoin without any indexing changes"
+    ],
+    "correctIndex": 1,
+    "explanation": "Large in-memory lookups in tMap can exhaust heap and slow GC. For large reference sets, reduce/filter the lookup dataset, index the join key, or push the join to the database engine (ELT components) instead of doing it row-by-row in tMap."
+  },
+  {
+    "id": "etl-04",
+    "category": "etlTalend",
+    "difficulty": "mid",
+    "prompt": "What is the difference between tMap and tXMLMap in Talend?",
+    "options": [
+      "tMap works on generic row flows (DB, delimited, etc.) doing transformations/joins/filters; tXMLMap is specialized for mapping to/from hierarchical XML structures",
+      "They are identical, tXMLMap is just a deprecated name",
+      "tXMLMap only works with JSON",
+      "tMap cannot do filtering, only tXMLMap can"
+    ],
+    "correctIndex": 0,
+    "explanation": "tXMLMap exists specifically to handle hierarchical XML mapping, while tMap is the general-purpose mapper for tabular row flows."
+  },
+  {
+    "id": "etl-05",
+    "category": "etlTalend",
+    "difficulty": "senior",
+    "prompt": "How do you make a Talend job idempotent when re-run after a partial failure while loading a fact table?",
+    "options": [
+      "Always TRUNCATE and reload the full fact table on every run regardless of size",
+      "Design with a staging table plus MERGE/UPSERT (or delete-then-insert by batch key) keyed on a natural/business key and batch id, tracking load state in a control table",
+      "Ignore the issue, jobs should never fail",
+      "Rely solely on database auto-increment IDs to prevent duplicates"
+    ],
+    "correctIndex": 1,
+    "explanation": "Keying merges/upserts on a business key plus batch id, backed by a staging table and control-table state tracking, lets a re-run safely converge to the correct result instead of duplicating or losing data."
+  },
+  {
+    "id": "etl-06",
+    "category": "etlTalend",
+    "difficulty": "mid",
+    "prompt": "Which Talend component setting lets you explicitly control commit batch size when writing to a target DB, to balance performance and rollback safety?",
+    "options": [
+      "tDBOutput commit/batch settings (commit every N rows)",
+      "tLogRow",
+      "tSchemaComplianceCheck",
+      "tLibraryLoad"
+    ],
+    "correctIndex": 0,
+    "explanation": "The output component's batch/commit-size setting controls how many rows are committed per transaction, trading off throughput against how much work is lost/rolled back on failure."
+  },
+  {
+    "id": "etl-07",
+    "category": "etlTalend",
+    "difficulty": "mid",
+    "prompt": "What is the role of the tPreJob / tPostJob components in a Talend job's design?",
+    "options": [
+      "They run once at the start/end of a job's execution regardless of how many subjobs there are, useful for setup (open DB connection) and teardown (close connection, send notification)",
+      "They are used to loop over files",
+      "They replace tMap for transformations",
+      "They are only for logging errors"
+    ],
+    "correctIndex": 0,
+    "explanation": "tPreJob and tPostJob run exactly once per job execution, independent of how many parallel subjobs exist, making them the right place for setup/teardown logic."
+  },
+  {
+    "id": "etl-08",
+    "category": "etlTalend",
+    "difficulty": "senior",
+    "prompt": "In a Talend Big Data / Spark job, what's the tradeoff of using tMap versus pushing logic down into Spark SQL / ELT-style components?",
+    "options": [
+      "tMap is always faster on big data",
+      "tMap runs the transformation per-record in Java on the Spark executors, which can be less efficient than SQL pushdown for set-based operations on large distributed datasets; ELT/SQL pushdown lets the underlying engine optimize execution",
+      "There is no difference",
+      "tMap cannot be used in Big Data jobs at all"
+    ],
+    "correctIndex": 1,
+    "explanation": "Row-by-row Java transformation in tMap forgoes the query optimizer's set-based optimizations that SQL pushdown to Spark/the database can exploit, which matters a lot at large scale."
+  },
+  {
+    "id": "etl-09",
+    "category": "etlTalend",
+    "difficulty": "senior",
+    "prompt": "Your Talend job must call a REST API with OAuth2 and handle rate-limiting (HTTP 429) responses with retry and backoff. What's an appropriate approach?",
+    "options": [
+      "tRESTClient wrapped in a loop with conditional retry logic (checking HTTP status, using tJava/routines for backoff and iteration control)",
+      "tFileInputXML",
+      "tSetGlobalVar alone",
+      "There is no way to handle retries in Talend"
+    ],
+    "correctIndex": 0,
+    "explanation": "Talend has no built-in 429 retry primitive, so you compose it: call the API, inspect the status code, and loop with a delay/backoff via routine or tJava logic until success or a max-attempt limit."
+  },
+  {
+    "id": "etl-10",
+    "category": "etlTalend",
+    "difficulty": "mid",
+    "prompt": "How would you monitor and alert on Talend job failures in production without manually checking logs?",
+    "options": [
+      "Use tPostjob/tCatch with tDie/tWarn plus tSendMail, or push job stats/logs to a centralized system (TAC/TMC or an ELK-style store) and trigger alerts on failure status",
+      "Only check the console output manually after each run",
+      "Disable error handling so jobs fail silently",
+      "Rely on end users to report failures"
+    ],
+    "correctIndex": 0,
+    "explanation": "Centralizing failure handling (tCatch/tDie) and forwarding status/logs to a monitored system with alerting is what makes failures actionable in production instead of discovered late."
+  },
+  {
+    "id": "sql-01",
+    "category": "sql",
+    "difficulty": "senior",
+    "prompt": "You need the running total of sales per region ordered by date, without a self-join. Which SQL feature is ideal?",
+    "options": [
+      "A window function like SUM(sales) OVER (PARTITION BY region ORDER BY date)",
+      "GROUP BY region only",
+      "A CROSS JOIN",
+      "UNION ALL"
+    ],
+    "correctIndex": 0,
+    "explanation": "Window functions compute aggregates over an ordered partition without collapsing rows, which is exactly what a running total needs."
+  },
+  {
+    "id": "sql-02",
+    "category": "sql",
+    "difficulty": "mid",
+    "prompt": "A query joining two large tables on a non-indexed VARCHAR column is slow. What's the most effective first fix?",
+    "options": [
+      "Add an index on the join column(s), and ensure consistent data types/collation, to avoid full scans",
+      "Convert the query to use SELECT *",
+      "Add more RAM only",
+      "Rewrite as a subquery with no other change"
+    ],
+    "correctIndex": 0,
+    "explanation": "Without an index, the join likely forces a full scan of one or both tables; indexing the join column (with matching collation/type) is the standard first lever."
+  },
+  {
+    "id": "sql-03",
+    "category": "sql",
+    "difficulty": "senior",
+    "prompt": "What's the key difference between RANK(), DENSE_RANK(), and ROW_NUMBER() window functions?",
+    "options": [
+      "They're identical",
+      "ROW_NUMBER() gives unique sequential numbers even for ties; RANK() leaves gaps after ties; DENSE_RANK() ranks ties the same without gaps",
+      "DENSE_RANK() is only for dates",
+      "RANK() cannot be used with PARTITION BY"
+    ],
+    "correctIndex": 1,
+    "explanation": "The three differ only in how they handle ties: ROW_NUMBER always increments, RANK skips numbers after a tie, DENSE_RANK does not skip."
+  },
+  {
+    "id": "sql-04",
+    "category": "sql",
+    "difficulty": "senior",
+    "prompt": "When would you use a recursive CTE (WITH clause), and what's an example use case?",
+    "options": [
+      "Recursive CTEs can't exist in SQL",
+      "To traverse hierarchical/graph data, e.g. an employee-manager org chart or a bill-of-materials tree, building rows level by level via a base case UNION ALL recursive case",
+      "Only for pivoting data",
+      "Only to replace a temp table always"
+    ],
+    "correctIndex": 1,
+    "explanation": "Recursive CTEs are the standard SQL tool for walking hierarchies or graphs where the depth isn't known in advance."
+  },
+  {
+    "id": "sql-05",
+    "category": "sql",
+    "difficulty": "senior",
+    "prompt": "Explain the difference between a clustered and a non-clustered index and its impact on range queries.",
+    "options": [
+      "A clustered index determines the physical row order on disk (one per table), making range scans on that key very efficient; non-clustered indexes are separate structures pointing back to rows, good for lookups on other columns but with extra lookup cost",
+      "They are interchangeable in all databases",
+      "Non-clustered indexes are always faster",
+      "Clustered indexes can't be used for range queries"
+    ],
+    "correctIndex": 0,
+    "explanation": "Because a clustered index physically orders the table's rows, contiguous range scans on that key avoid random I/O that a non-clustered index's row lookups would incur."
+  },
+  {
+    "id": "sql-06",
+    "category": "sql",
+    "difficulty": "mid",
+    "prompt": "You need to find duplicate rows by (email) and keep only the earliest one by created_at. What's a solid approach?",
+    "options": [
+      "Use ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at) in a CTE, then DELETE where row_number > 1",
+      "Manually eyeball the table",
+      "DELETE FROM table without a WHERE clause",
+      "GROUP BY email with no ordering"
+    ],
+    "correctIndex": 0,
+    "explanation": "Partitioning by the duplicate key and ordering by created_at lets ROW_NUMBER identify exactly which rows to keep vs. delete deterministically."
+  },
+  {
+    "id": "sql-07",
+    "category": "sql",
+    "difficulty": "senior",
+    "prompt": "Why can filtering a right-hand table's column in the WHERE clause silently turn a LEFT JOIN into an INNER JOIN?",
+    "options": [
+      "There's no such effect, ever",
+      "Filtering the right table's column in WHERE (rather than in the ON clause) excludes unmatched left rows where that column is NULL, effectively behaving like an INNER JOIN; the filter should go in the ON clause to preserve LEFT JOIN semantics",
+      "LEFT JOIN always ignores WHERE clauses",
+      "INNER JOIN cannot have WHERE clauses"
+    ],
+    "correctIndex": 1,
+    "explanation": "WHERE is applied after the join, so a condition on the right table's column drops rows where it's NULL - which is exactly the unmatched rows a LEFT JOIN was meant to preserve."
+  },
+  {
+    "id": "sql-08",
+    "category": "sql",
+    "difficulty": "mid",
+    "prompt": "How do query execution plans help diagnose a slow query, and what's one red flag to look for?",
+    "options": [
+      "They show nothing useful",
+      "EXPLAIN/EXPLAIN ANALYZE shows the join order and access method (seq scan vs. index scan) plus estimated vs. actual row counts; a full scan on a large table or a big estimate/actual mismatch are red flags",
+      "Execution plans only matter for NoSQL",
+      "They only show syntax errors"
+    ],
+    "correctIndex": 1,
+    "explanation": "A mismatch between estimated and actual rows usually points to stale statistics, and an unexpected sequential scan on a large table usually points to a missing or unused index."
+  },
+  {
+    "id": "sql-09",
+    "category": "sql",
+    "difficulty": "mid",
+    "prompt": "What's the difference between UNION and UNION ALL, and when would you prefer one for performance?",
+    "options": [
+      "UNION removes duplicate rows (requiring an implicit sort/dedup, more expensive); UNION ALL keeps all rows and is faster since it skips deduplication - prefer UNION ALL when duplicates aren't a concern",
+      "They are the same",
+      "UNION ALL removes duplicates, UNION doesn't",
+      "UNION is always faster"
+    ],
+    "correctIndex": 0,
+    "explanation": "UNION's deduplication step is extra work; skip it with UNION ALL whenever you know the inputs are already disjoint or duplicates are acceptable."
+  },
+  {
+    "id": "sql-10",
+    "category": "sql",
+    "difficulty": "senior",
+    "prompt": "In a warehouse fact table with billions of rows, what partitioning strategy commonly speeds up date-range queries and simplifies retention/purging?",
+    "options": [
+      "Partition the fact table by date (e.g. monthly/daily range partitioning) so range-scoped queries prune irrelevant partitions and old partitions can be dropped/archived easily",
+      "Partition randomly by row hash only",
+      "Never partition fact tables",
+      "Partition only by an unrelated surrogate key"
+    ],
+    "correctIndex": 0,
+    "explanation": "Date-range partitioning aligns with how these tables are typically queried and purged, enabling partition pruning and cheap bulk-drop retention instead of row-by-row deletes."
+  },
+  {
+    "id": "spring-01",
+    "category": "javaSpringBoot",
+    "difficulty": "mid",
+    "prompt": "What's the difference between @Component, @Service, and @Repository in Spring, given all three register a bean?",
+    "options": [
+      "They are functionally unrelated annotations",
+      "All three are stereotypes of @Component (so all become beans); @Service/@Repository add semantic meaning, and @Repository additionally enables persistence-exception translation into Spring's DataAccessException hierarchy",
+      "@Service beans are singletons but @Component beans are not",
+      "@Repository is required for every bean"
+    ],
+    "correctIndex": 1,
+    "explanation": "@Service and @Repository are specializations of @Component; @Repository's added behavior is automatic translation of persistence exceptions into Spring's unified DataAccessException hierarchy."
+  },
+  {
+    "id": "spring-02",
+    "category": "javaSpringBoot",
+    "difficulty": "senior",
+    "prompt": "What's the default transaction propagation of @Transactional, and a common pitfall with self-invocation?",
+    "options": [
+      "Default propagation is REQUIRED (joins or creates a transaction); a pitfall is calling a @Transactional method from another method in the same class - Spring's proxy-based AOP won't intercept that internal call, so the transactional behavior is silently skipped",
+      "@Transactional works fine on internally-called private methods",
+      "Default propagation is REQUIRES_NEW always",
+      "Self-invocation always throws a runtime exception"
+    ],
+    "correctIndex": 0,
+    "explanation": "Because Spring AOP wraps beans in proxies, only calls arriving through the proxy (from outside the class) are intercepted; calling `this.method()` internally bypasses the proxy entirely."
+  },
+  {
+    "id": "spring-03",
+    "category": "javaSpringBoot",
+    "difficulty": "mid",
+    "prompt": "You need a bean's initialization to run setup code after all its properties are injected. What's an idiomatic way to do this?",
+    "options": [
+      "Implement InitializingBean.afterPropertiesSet() or annotate a method with @PostConstruct",
+      "Use a static initializer block only",
+      "Put logic in the constructor only, never after",
+      "There is no lifecycle hook for this in Spring"
+    ],
+    "correctIndex": 0,
+    "explanation": "@PostConstruct (or InitializingBean) runs after dependency injection completes, which is exactly the point you want for setup logic that depends on injected collaborators."
+  },
+  {
+    "id": "spring-04",
+    "category": "javaSpringBoot",
+    "difficulty": "senior",
+    "prompt": "How does Spring Boot's auto-configuration decide whether to configure a bean, e.g. a DataSource?",
+    "options": [
+      "It's manual only, no auto-configuration exists",
+      "Via conditional annotations like @ConditionalOnClass, @ConditionalOnMissingBean, @ConditionalOnProperty evaluated against the classpath, existing bean definitions, and properties, so it backs off if you've defined your own bean",
+      "It always overrides user-defined beans",
+      "It scans random packages with no rules"
+    ],
+    "correctIndex": 1,
+    "explanation": "Conditional annotations are the mechanism auto-configuration uses to decide whether to activate; @ConditionalOnMissingBean specifically ensures user-defined beans take precedence."
+  },
+  {
+    "id": "spring-05",
+    "category": "javaSpringBoot",
+    "difficulty": "mid",
+    "prompt": "What's the purpose of Spring Boot Actuator, and name a production-relevant endpoint it provides?",
+    "options": [
+      "It's only useful for local development",
+      "Actuator exposes production-ready monitoring/management endpoints such as /actuator/health and /actuator/metrics, often wired into Prometheus/Grafana",
+      "It replaces Spring MVC entirely",
+      "It's used only for compiling the app"
+    ],
+    "correctIndex": 1,
+    "explanation": "Actuator's health and metrics endpoints are the standard hooks used by load balancers, orchestrators, and monitoring stacks in production."
+  },
+  {
+    "id": "spring-06",
+    "category": "javaSpringBoot",
+    "difficulty": "senior",
+    "prompt": "In a REST API with concurrent updates to the same entity, how do you prevent lost updates using JPA?",
+    "options": [
+      "Ignore it, JPA prevents this automatically",
+      "Use optimistic locking via @Version on the entity, so a stale update throws OptimisticLockException and can be retried, or use pessimistic locking (SELECT ... FOR UPDATE) for high-contention critical sections",
+      "Only use @Transactional with no other change",
+      "Use Thread.sleep() to avoid races"
+    ],
+    "correctIndex": 1,
+    "explanation": "@Version gives you optimistic concurrency control for free in JPA; pessimistic locking is the fallback when contention is high enough that retries become wasteful."
+  },
+  {
+    "id": "spring-07",
+    "category": "javaSpringBoot",
+    "difficulty": "mid",
+    "prompt": "How are Bean Validation errors on a @Valid @RequestBody typically surfaced in a Spring Boot REST API?",
+    "options": [
+      "@Valid triggers JSR 380 annotations like @NotNull/@Size on the DTO; violations throw MethodArgumentNotValidException, typically handled via @ControllerAdvice/@ExceptionHandler to return a structured 400 response",
+      "Validation must always be done manually with if-statements",
+      "@Valid has no effect on @RequestBody",
+      "Errors are only logged, never returned to the client"
+    ],
+    "correctIndex": 0,
+    "explanation": "The standard pattern is Bean Validation annotations plus a centralized @ControllerAdvice that maps MethodArgumentNotValidException to a structured error response."
+  },
+  {
+    "id": "spring-08",
+    "category": "javaSpringBoot",
+    "difficulty": "senior",
+    "prompt": "Your Spring Boot microservice needs resilience against a slow or failing downstream service. What pattern/library addresses this?",
+    "options": [
+      "Ignore failures and let requests hang",
+      "Use a circuit breaker (e.g. Resilience4j) that trips open after repeated failures, fast-failing subsequent calls and allowing fallback logic, then half-opens to test recovery",
+      "Increase the timeout to infinity",
+      "Retry indefinitely with no backoff"
+    ],
+    "correctIndex": 1,
+    "explanation": "Circuit breakers prevent cascading failure by fast-failing once a downstream dependency is clearly unhealthy, instead of piling up threads waiting on it."
+  },
+  {
+    "id": "spring-09",
+    "category": "javaSpringBoot",
+    "difficulty": "mid",
+    "prompt": "How are Spring Boot profiles (application-{profile}.yml) typically used, and how do you activate one at runtime?",
+    "options": [
+      "Profiles let you define environment-specific configuration (dev/test/prod) that overrides application.yml; activate via spring.profiles.active as a JVM arg, env var, or in application.yml",
+      "Profiles only affect logging levels",
+      "You must recompile the app to switch profiles",
+      "Only one profile file can exist per app"
+    ],
+    "correctIndex": 0,
+    "explanation": "spring.profiles.active is read at startup from JVM args, environment variables, or config files, letting the same jar run with different environment-specific overrides."
+  },
+  {
+    "id": "spring-10",
+    "category": "javaSpringBoot",
+    "difficulty": "senior",
+    "prompt": "What is the N+1 select problem in Spring Data JPA, and how do you fix it for a one-to-many relationship?",
+    "options": [
+      "It's not a real issue in JPA",
+      "Lazy-loading a collection per parent row triggers one query per parent (N+1 total); fix with JOIN FETCH in a JPQL query, an @EntityGraph, or batch fetching to load associations in fewer queries",
+      "Switching to EAGER fetch always fixes it with no downsides",
+      "Only relevant for native SQL, not JPA"
+    ],
+    "correctIndex": 1,
+    "explanation": "JOIN FETCH, @EntityGraph, and batch fetch sizing are the standard ways to collapse what would otherwise be one query per parent entity into a small, fixed number of queries."
+  },
+  {
+    "id": "nifi-01",
+    "category": "nifi",
+    "difficulty": "mid",
+    "prompt": "What is backpressure in Apache NiFi, and how do you configure it on a connection?",
+    "options": [
+      "It doesn't exist in NiFi",
+      "Backpressure limits how much data (by object count and/or size threshold) can queue on a connection between processors; once the threshold is hit, the upstream processor is throttled until the queue drains",
+      "It's a security feature only",
+      "It automatically deletes old FlowFiles"
+    ],
+    "correctIndex": 1,
+    "explanation": "Backpressure thresholds on a connection are NiFi's mechanism for preventing an unbounded queue between a fast producer and a slow consumer from exhausting memory or disk."
+  },
+  {
+    "id": "nifi-02",
+    "category": "nifi",
+    "difficulty": "mid",
+    "prompt": "What is FlowFile provenance in NiFi, and why is it valuable in a production pipeline?",
+    "options": [
+      "It's just a debug log with no retention",
+      "Provenance records every event (create, receive, route, modify, drop) that happens to a FlowFile with full lineage, letting you trace a piece of data's entire history through the flow",
+      "It only tracks the final destination, not history",
+      "It replaces the need for processor logs entirely"
+    ],
+    "correctIndex": 1,
+    "explanation": "Provenance gives full end-to-end lineage for a piece of data, which is what makes auditing and debugging a complex flow tractable."
+  },
+  {
+    "id": "nifi-03",
+    "category": "nifi",
+    "difficulty": "senior",
+    "prompt": "When would you use a Process Group with input/output ports instead of a flat sequence of processors on the canvas?",
+    "options": [
+      "Process Groups are only for visual decoration",
+      "Process Groups let you modularize/encapsulate a reusable subflow with defined ports, enabling versioning via NiFi Registry, reuse across flows, and clearer organization of complex pipelines",
+      "They are identical with no functional difference",
+      "Process Groups disable backpressure"
+    ],
+    "correctIndex": 1,
+    "explanation": "Process Groups are NiFi's unit of modularity and versioning, letting a subflow be reused and independently version-controlled through NiFi Registry."
+  },
+  {
+    "id": "nifi-04",
+    "category": "nifi",
+    "difficulty": "mid",
+    "prompt": "A flow needs to route FlowFiles differently based on an attribute value (e.g. a status field). Which processor is typically used?",
+    "options": [
+      "RouteOnAttribute, using NiFi Expression Language conditions per relationship",
+      "LogAttribute",
+      "UpdateAttribute only",
+      "MergeContent"
+    ],
+    "correctIndex": 0,
+    "explanation": "RouteOnAttribute evaluates Expression Language conditions to send a FlowFile down one of several dynamically-defined relationships."
+  },
+  {
+    "id": "nifi-05",
+    "category": "nifi",
+    "difficulty": "senior",
+    "prompt": "How does NiFi's Expression Language differ from writing custom code in an ExecuteScript processor, and when would you choose each?",
+    "options": [
+      "They're identical in capability",
+      "Expression Language is a lightweight, declarative way to reference/transform FlowFile attributes inline in processor properties; ExecuteScript is used for complex custom transformation logic that Expression Language can't express",
+      "ExecuteScript cannot access FlowFile attributes",
+      "Expression Language can modify FlowFile content directly"
+    ],
+    "correctIndex": 1,
+    "explanation": "Expression Language is scoped to attribute-level expressions inside processor properties; anything involving real content transformation or complex logic needs a scripting processor instead."
+  },
+  {
+    "id": "nifi-06",
+    "category": "nifi",
+    "difficulty": "senior",
+    "prompt": "What's the purpose of the Penalize duration setting on a relationship/processor, and how does it differ from backpressure?",
+    "options": [
+      "They are the same thing",
+      "Penalization delays a specific FlowFile from being reprocessed (e.g. after a failed attempt) before retry; backpressure is a connection-level queue threshold affecting the flow overall, not tied to one FlowFile's retry timing",
+      "Penalization deletes the FlowFile",
+      "Penalization only applies to input ports"
+    ],
+    "correctIndex": 1,
+    "explanation": "Penalization is a per-FlowFile retry delay; backpressure is a connection-wide queue limit. They solve different problems and can be used together."
+  },
+  {
+    "id": "nifi-07",
+    "category": "nifi",
+    "difficulty": "senior",
+    "prompt": "You need to avoid duplicate delivery to a downstream system that isn't naturally idempotent. What approaches help in NiFi?",
+    "options": [
+      "It's impossible, ignore the problem",
+      "Use content/attribute-based deduplication (e.g. DetectDuplicate with a distributed cache) and design the downstream write to be idempotent (upsert by natural key), since NiFi generally offers at-least-once delivery",
+      "Just increase the number of threads",
+      "Disable backpressure entirely"
+    ],
+    "correctIndex": 1,
+    "explanation": "Since NiFi's delivery guarantee is effectively at-least-once, true correctness requires either dedup at the NiFi layer or an idempotent write at the destination."
+  },
+  {
+    "id": "nifi-08",
+    "category": "nifi",
+    "difficulty": "senior",
+    "prompt": "How would you scale a NiFi flow for a high-throughput source, and what's a key consideration when clustering?",
+    "options": [
+      "NiFi cannot be clustered",
+      "Increase Concurrent Tasks on the bottleneck processor and/or run NiFi as a cluster, but ensure stateful processors (e.g. list-style source processors) run Primary Node Only or use proper cluster-aware state to avoid duplicate/missed processing",
+      "Just add more RAM to a single node, clustering is discouraged",
+      "Concurrent tasks setting has no performance effect"
+    ],
+    "correctIndex": 1,
+    "explanation": "Concurrent Tasks scales a single processor's parallelism, and clustering scales the whole flow horizontally - but stateful list/ingest processors must be pinned to avoid every node processing the same source."
+  },
+  {
+    "id": "nifi-09",
+    "category": "nifi",
+    "difficulty": "mid",
+    "prompt": "What's the role of NiFi Registry in a team environment with dev/qa/prod NiFi instances?",
+    "options": [
+      "It's just a metrics dashboard",
+      "NiFi Registry provides version control for flows/Process Groups, letting you commit changes, track history, and promote the same versioned flow definition across environments",
+      "It replaces the NiFi UI entirely",
+      "It stores FlowFile content permanently"
+    ],
+    "correctIndex": 1,
+    "explanation": "Registry is NiFi's equivalent of a git remote for flow definitions, enabling controlled promotion of the same versioned flow across environments."
+  },
+  {
+    "id": "nifi-10",
+    "category": "nifi",
+    "difficulty": "senior",
+    "prompt": "A processor is repeatedly failing and FlowFiles are piling up on its failure relationship. What's a sound production approach?",
+    "options": [
+      "Ignore it, NiFi handles failures automatically forever",
+      "Route the failure relationship to a retry loop with penalization/backoff and a max-retry count, and route persistent failures to a dead-letter destination with alerting",
+      "Always auto-terminate the failure relationship silently",
+      "Restart the whole NiFi cluster whenever any processor fails"
+    ],
+    "correctIndex": 1,
+    "explanation": "A bounded retry loop plus a dead-letter path with alerting keeps a bad batch of data from either blocking the flow forever or silently vanishing."
+  },
+  {
+    "id": "swe-01",
+    "category": "generalSWE",
+    "difficulty": "senior",
+    "prompt": "Designing a URL shortener at scale, what's the primary consideration for the read path (redirect from short code to long URL)?",
+    "options": [
+      "It's write-heavy, reads don't matter",
+      "Reads vastly outnumber writes in most URL shorteners, so aggressive caching (CDN/in-memory cache in front of the DB) for hot short codes is key to keeping redirect latency low",
+      "There is no read/write asymmetry to consider",
+      "Reads should always hit the primary DB directly with no caching"
+    ],
+    "correctIndex": 1,
+    "explanation": "URL shorteners are extremely read-heavy relative to writes, so the design center is a fast cache in front of the mapping store."
+  },
+  {
+    "id": "swe-02",
+    "category": "generalSWE",
+    "difficulty": "mid",
+    "prompt": "What's the difference between horizontal and vertical scaling, and a key tradeoff of each?",
+    "options": [
+      "They are the same",
+      "Vertical scaling (bigger machine) is simpler but has hard limits and a single point of failure; horizontal scaling (more machines) offers better fault tolerance and scale but adds distributed-systems complexity",
+      "Horizontal scaling always requires no code changes",
+      "Vertical scaling is always cheaper at any scale"
+    ],
+    "correctIndex": 1,
+    "explanation": "Vertical scaling trades simplicity for a ceiling and a single point of failure; horizontal scaling trades added complexity (state, coordination) for near-limitless scale and resilience."
+  },
+  {
+    "id": "swe-03",
+    "category": "generalSWE",
+    "difficulty": "senior",
+    "prompt": "A multi-threaded Java service shows intermittent stale reads of a shared flag variable across threads. What's the likely cause and fix?",
+    "options": [
+      "It's a compiler bug, nothing can be done",
+      "Lack of a proper happens-before relationship (missing volatile, synchronization, or a higher-level construct like AtomicBoolean) lets threads see stale cached values; fixing requires proper memory visibility guarantees",
+      "Just add more threads",
+      "Restart the JVM periodically as the permanent fix"
+    ],
+    "correctIndex": 1,
+    "explanation": "Without a happens-before edge, the JMM doesn't guarantee one thread's write is visible to another; volatile/synchronized/atomics establish that guarantee."
+  },
+  {
+    "id": "swe-04",
+    "category": "generalSWE",
+    "difficulty": "senior",
+    "prompt": "What's the difference between optimistic and pessimistic concurrency control, and when is each preferred?",
+    "options": [
+      "They are identical",
+      "Optimistic control assumes conflicts are rare and checks at commit time (e.g. version numbers), retrying on conflict - good for low contention; pessimistic control locks resources upfront, better for high contention despite added blocking",
+      "Pessimistic control never uses locks",
+      "Optimistic control is always faster regardless of contention"
+    ],
+    "correctIndex": 1,
+    "explanation": "The right choice depends on contention: optimistic wins when conflicts are rare (avoiding lock overhead), pessimistic wins when conflicts are frequent (avoiding wasted retries)."
+  },
+  {
+    "id": "swe-05",
+    "category": "generalSWE",
+    "difficulty": "senior",
+    "prompt": "How would you design idempotency for a charge-payment API endpoint that clients might retry on network timeout?",
+    "options": [
+      "Idempotency isn't achievable for payments",
+      "Require clients to pass an idempotency key per logical operation; the server stores the key with its result so a retried request with the same key returns the original result instead of double-charging",
+      "Just retry silently and accept possible duplicate charges",
+      "Use GET requests for charging to make it idempotent"
+    ],
+    "correctIndex": 1,
+    "explanation": "Client-supplied idempotency keys, checked and stored server-side, are the standard way to make a naturally non-idempotent operation like a charge safe to retry."
+  },
+  {
+    "id": "swe-06",
+    "category": "generalSWE",
+    "difficulty": "senior",
+    "prompt": "Explain the CAP theorem tradeoff when choosing a distributed database that must stay highly available during a network partition.",
+    "options": [
+      "CAP theorem is purely theoretical with no practical relevance",
+      "During a partition, a system must choose between Consistency (reject/queue requests) and Availability (serve possibly stale data); many systems choose AP for use cases like caching, while CP is chosen where correctness is critical (e.g. ledgers)",
+      "CAP means you must always pick all three simultaneously",
+      "Only SQL databases are subject to CAP theorem"
+    ],
+    "correctIndex": 1,
+    "explanation": "CAP only bites during an actual partition, and the choice of AP vs CP should follow from how much staleness the use case can tolerate versus how much unavailability it can tolerate."
+  },
+  {
+    "id": "swe-07",
+    "category": "generalSWE",
+    "difficulty": "mid",
+    "prompt": "What's the architectural difference between a point-to-point message queue and a pub/sub topic, and when would you choose each?",
+    "options": [
+      "They're interchangeable in all cases",
+      "A queue typically delivers each message to one consumer (work distribution); pub/sub broadcasts each message to all subscribers (event notification, fan-out) - choose based on whether you need exactly-one-consumer processing or multiple independent reactions",
+      "Pub/sub cannot have multiple consumers",
+      "Queues cannot be used for asynchronous processing"
+    ],
+    "correctIndex": 1,
+    "explanation": "Queues are for distributing work across a consumer pool; pub/sub is for broadcasting an event to every interested subscriber independently."
+  },
+  {
+    "id": "swe-08",
+    "category": "generalSWE",
+    "difficulty": "mid",
+    "prompt": "A PR adds a new feature but also silently changes an unrelated shared utility function's behavior. What's the right response in review?",
+    "options": [
+      "Approve it since the feature works",
+      "Flag it: unrelated behavior changes to shared code should be a separate, reviewed change with its own tests/rationale, since bundling it hides risk and complicates rollback/bisection",
+      "Rewrite the whole PR yourself without discussion",
+      "Ignore it since tests passed"
+    ],
+    "correctIndex": 1,
+    "explanation": "Bundling an unrelated, silent behavior change into a feature PR hides risk and makes future bisection/rollback harder - it deserves its own reviewed change."
+  },
+  {
+    "id": "swe-09",
+    "category": "generalSWE",
+    "difficulty": "senior",
+    "prompt": "How would you design a rate limiter for a public API (e.g. 100 requests/minute per API key)? Name a common algorithm.",
+    "options": [
+      "Rate limiting isn't feasible to implement generically",
+      "Common algorithms include token bucket (allows bursts up to a capacity, refills over time) and sliding-window counters, typically backed by a fast shared store like Redis with atomic increment/expire per key",
+      "Just reject every 101st request forever after the first 100 ever",
+      "Rate limiting requires no shared state across servers"
+    ],
+    "correctIndex": 1,
+    "explanation": "Token bucket and sliding-window counters are the standard algorithms, and in a multi-server deployment they need a shared, atomic store like Redis to be enforced correctly."
+  },
+  {
+    "id": "swe-10",
+    "category": "generalSWE",
+    "difficulty": "mid",
+    "prompt": "What's the main advantage of database migrations (Flyway/Liquibase) over manually applying schema changes in production?",
+    "options": [
+      "There's no real benefit",
+      "Migrations are versioned, repeatable, and applied consistently across environments with a tracked history, reducing drift and making rollbacks/audits possible compared to ad hoc manual SQL",
+      "Migrations eliminate the need for backups",
+      "Migrations only work with NoSQL databases"
+    ],
+    "correctIndex": 1,
+    "explanation": "Versioned, tracked migrations are what let a schema's history be reproduced consistently across dev/qa/prod instead of drifting apart via manual changes."
+  }
+]

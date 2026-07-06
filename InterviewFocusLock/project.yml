@@ -1,0 +1,44 @@
+name: InterviewFocusLock
+options:
+  bundleIdPrefix: com.kushal
+  deploymentTarget:
+    iOS: "16.0"
+configs:
+  Debug: debug
+  Release: release
+targets:
+  InterviewFocusLock:
+    type: application
+    platform: iOS
+    sources:
+      - InterviewFocusLock
+      - Shared
+    info:
+      path: InterviewFocusLock/Info.plist
+    entitlements:
+      path: InterviewFocusLock/InterviewFocusLock.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kushal.interviewfocuslock
+        DEVELOPMENT_TEAM: ""
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - target: InterviewFocusLockMonitor
+        embed: true
+
+  InterviewFocusLockMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - InterviewFocusLockMonitor
+      - Shared
+    info:
+      path: InterviewFocusLockMonitor/Info.plist
+    entitlements:
+      path: InterviewFocusLockMonitor/InterviewFocusLockMonitor.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kushal.interviewfocuslock.monitor
+        DEVELOPMENT_TEAM: ""
+        SWIFT_VERSION: "5.0"
