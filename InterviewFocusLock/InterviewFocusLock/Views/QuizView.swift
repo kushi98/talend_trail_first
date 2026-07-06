@@ -16,10 +16,14 @@ struct QuizView: View {
             Group {
                 if !hasStarted {
                     categoryPicker
+                } else if quiz.isLoading {
+                    loadingView
                 } else if let question = quiz.currentQuestion {
                     questionView(question)
                 } else {
-                    Text("No questions available.")
+                    Text("No question available. Check your Anthropic API key in Settings, or try again.")
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding()
@@ -47,11 +51,15 @@ struct QuizView: View {
             }
             .toggleStyle(.switch)
 
+            Text("Questions are generated fresh by Claude. If no API key is set or the request fails, a built-in question bank is used instead.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
             Spacer()
 
             Button {
-                quiz.nextQuestion(categories: selectedCategories)
                 hasStarted = true
+                Task { await quiz.nextQuestion(categories: selectedCategories) }
             } label: {
                 Text("Start")
                     .frame(maxWidth: .infinity)
@@ -62,11 +70,30 @@ struct QuizView: View {
         }
     }
 
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            ProgressView()
+            Text("Generating a question with Claude...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+    }
+
     private func questionView(_ question: Question) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(question.category.displayName)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack {
+                Text(question.category.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if quiz.isUsingOfflineFallback {
+                    Label("Offline bank", systemImage: "wifi.slash")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
 
             Text(question.prompt)
                 .font(.title3).bold()
@@ -99,7 +126,7 @@ struct QuizView: View {
                         selectedOptionIndex = nil
                         isAnswered = false
                         unlockMessage = nil
-                        quiz.nextQuestion(categories: selectedCategories)
+                        Task { await quiz.nextQuestion(categories: selectedCategories) }
                     }
                 } label: {
                     Text(wasCorrect ? "Done" : "Try Another Question")

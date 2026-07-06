@@ -1,26 +1,57 @@
 import Foundation
 
-/// Picks questions and tracks correct/incorrect stats (separate from unlock/lock state,
-/// which lives in ScreenTimeManager/UnlockManager/DailyUsageStore).
+/// Picks questions - AI-generated via Claude by default, falling back silently to the
+/// bundled seed bank if there's no API key, no network, or the API call fails for any
+/// reason - and tracks correct/incorrect stats (separate from unlock/lock state, which
+/// lives in ScreenTimeManager/UnlockManager/DailyUsageStore).
+@MainActor
 final class QuizManager: ObservableObject {
     static let shared = QuizManager()
 
     @Published private(set) var currentQuestion: Question?
+    @Published private(set) var isLoading = false
+    @Published private(set) var isUsingOfflineFallback = false
 
-    private var recentIDs: [String] = []
+    private var recentPrompts: [String] = []
     private let bank = QuestionBank.shared
     private let correctKey = "statsCorrect"
     private let incorrectKey = "statsIncorrect"
 
-    func nextQuestion(categories: Set<QuestionCategory>) {
-        let all = bank.questions(in: categories.isEmpty ? Set(QuestionCategory.allCases) : categories)
-        let fresh = all.filter { !recentIDs.contains($0.id) }
-        let pool = fresh.isEmpty ? all : fresh
-        currentQuestion = pool.randomElement()
-        if let q = currentQuestion {
-            recentIDs.append(q.id)
-            if recentIDs.count > 8 { recentIDs.removeFirst() }
+    func nextQuestion(categories: Set<QuestionCategory>) async {
+        isLoading = true
+        isUsingOfflineFallback = false
+        defer { isLoading = false }
+
+        let categorySet = categories.isEmpty ? Set(QuestionCategory.allCases) : categories
+        let category = categorySet.randomElement() ?? .generalSWE
+        let difficulty = ["mid", "senior"].randomElement() ?? "senior"
+
+        do {
+            let question = try await AIQuestionService.shared.generateQuestion(
+                category: category,
+                difficulty: difficulty,
+                avoiding: recentPrompts
+            )
+            currentQuestion = question
+            trackRecent(question.prompt)
+        } catch {
+            isUsingOfflineFallback = true
+            currentQuestion = fallbackQuestion(categories: categorySet)
         }
+    }
+
+    private func fallbackQuestion(categories: Set<QuestionCategory>) -> Question? {
+        let all = bank.questions(in: categories)
+        let fresh = all.filter { !recentPrompts.contains($0.prompt) }
+        let pool = fresh.isEmpty ? all : fresh
+        let question = pool.randomElement()
+        if let question { trackRecent(question.prompt) }
+        return question
+    }
+
+    private func trackRecent(_ prompt: String) {
+        recentPrompts.append(prompt)
+        if recentPrompts.count > 8 { recentPrompts.removeFirst() }
     }
 
     @discardableResult

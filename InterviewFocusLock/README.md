@@ -2,8 +2,13 @@
 
 A native iOS app that locks the distracting apps you pick, and only unlocks them
 for **10 minutes per correct answer**, capped at **60 minutes total per day**, to
-questions from a built-in senior-level (6 yrs exp) interview question bank covering
-**Talend/ETL, SQL, Java/Spring Boot, Apache NiFi, and general SWE/system design**.
+senior-level (6 yrs exp) interview questions covering **Talend/ETL, SQL,
+Java/Spring Boot, Apache NiFi, and general SWE/system design**.
+
+Questions are **generated live by the Claude API** using your own Anthropic API
+key, so they're fresh every time instead of repeating from a fixed list. A
+50-question seed bank is bundled as an **offline fallback** for when there's no
+API key configured, no network, or the API call fails.
 
 ## Why this needs to be a real iOS app (not a web app)
 
@@ -31,9 +36,11 @@ InterviewFocusLock/
     Models/Question.swift, QuestionBank.swift
     Managers/ScreenTimeManager.swift    # Screen Time auth + shield on/off
     Managers/UnlockManager.swift        # grants a 10-min unlock, enforces 60-min/day cap
-    Managers/QuizManager.swift          # picks questions, tracks correct/incorrect stats
-    Views/                              # Onboarding, AppSelection, Home, Quiz, StudyMode, Stats
-    Resources/Questions.json            # 50 seeded questions (10 per topic)
+    Managers/QuizManager.swift          # AI-first question selection, tracks correct/incorrect stats
+    Managers/AIQuestionService.swift    # calls the Claude API to generate a question on demand
+    Managers/KeychainStore.swift        # stores your Anthropic API key in the Keychain
+    Views/                              # Onboarding, AppSelection, Home, Quiz, StudyMode, Stats, Settings
+    Resources/Questions.json            # 50 seeded questions (10 per topic) - offline fallback only
   InterviewFocusLockMonitor/            # DeviceActivityMonitor extension target
     DeviceActivityMonitorExtension.swift # re-locks apps when the unlock window ends
   Shared/                               # code/constants shared by both targets (App Group)
@@ -63,12 +70,21 @@ InterviewFocusLock/
    Settings > General > VPN & Device Management if prompted.
 6. On first launch, tap **Enable Screen Time Access** and approve the prompt,
    then pick the apps/categories to lock.
+7. Tap the gear icon on the home screen and paste in your own Anthropic API key
+   (get one at console.anthropic.com) so questions are generated live instead
+   of falling back to the offline bank. This step is optional - the app works
+   without a key, just with a fixed question set instead of fresh ones.
 
 ## How the lock/unlock flow works
 
 1. You select apps/categories once (`AppSelectionView`) - they get shielded
    immediately.
-2. Tap **Answer a Question to Unlock**, pick topics, answer an MCQ question.
+2. Tap **Answer a Question to Unlock**, pick topics. `QuizManager` asks
+   `AIQuestionService` to generate one MCQ question via the Claude API for a
+   random category/difficulty from what you picked, avoiding the last few
+   questions you were asked; if that fails for any reason (no key, no
+   network, bad response) it silently falls back to a random question from
+   the offline seed bank and shows an "Offline bank" badge so you know.
 3. Correct answer -> `UnlockManager` removes the shield and schedules a
    `DeviceActivity` for exactly 10 minutes from now.
 4. When that 10-minute window ends, iOS runs `DeviceActivityMonitorExtension`
@@ -78,6 +94,22 @@ InterviewFocusLock/
    until the next day, regardless of how many questions you answer correctly.
 6. **Study Mode** lets you browse all 50 questions with answers/explanations
    any time, without needing to unlock anything - pure prep, no gate.
+
+## AI question generation
+
+- Settings (gear icon) lets you paste your **own** Anthropic API key and pick a
+  model (`claude-sonnet-5` by default; `claude-opus-4-8`, `claude-haiku-4-5`,
+  and `claude-fable-5` are also selectable).
+- The key is saved only in the iOS **Keychain** via `KeychainStore` - it is
+  never written to `UserDefaults`, never logged, never committed to git, and
+  never leaves the device except in the direct HTTPS call to
+  `api.anthropic.com`.
+- Every question you're asked costs a small Claude API call billed to **your**
+  Anthropic account - at typical per-question token usage this is a fraction
+  of a cent per question, but it's your usage to monitor at
+  console.anthropic.com, not something this app tracks or caps for you.
+- If you'd rather not use your key at all, just leave it blank - the app runs
+  entirely offline on the 50-question seed bank.
 
 ## Known limitations (be upfront about these)
 
@@ -97,6 +129,9 @@ InterviewFocusLock/
   ends correctly because the extension (not the app process) enforces it - but
   double check this behaves as expected on your iOS version, since Apple has
   changed `DeviceActivity` timing behavior across releases.
+- AI-generated questions require network access and a valid API key; expect
+  occasional fallback to the offline bank on flaky connections, rate limits,
+  or if Claude doesn't return parseable JSON on a given call.
 
 ## Other ideas to make this actually help you land the job
 
@@ -119,9 +154,11 @@ InterviewFocusLock/
   but it costs double the unlock minutes next time - keeps you honest without
   ever fully locking yourself out.
 
-## Adding your own questions
+## Editing the offline fallback bank
 
-Edit `InterviewFocusLock/Resources/Questions.json` - it's a flat array of:
+This only matters for the no-key/no-network fallback path - normal usage with
+an API key configured never touches this file. Edit
+`InterviewFocusLock/Resources/Questions.json` - it's a flat array of:
 ```json
 {
   "id": "unique-id",

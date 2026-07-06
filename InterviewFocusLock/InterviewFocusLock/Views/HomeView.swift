@@ -6,6 +6,7 @@ struct HomeView: View {
     @State private var isStudyPresented = false
     @State private var isStatsPresented = false
     @State private var isEditAppsPresented = false
+    @State private var isSettingsPresented = false
     @State private var now = Date()
 
     private let usage = DailyUsageStore.shared
@@ -48,6 +49,12 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
+                } else if KeychainStore.loadAPIKey() == nil {
+                    Text("No Anthropic API key set - tap the gear icon to add one for AI-generated questions. The built-in question bank will be used until then.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
 
                 Button {
@@ -79,11 +86,21 @@ struct HomeView: View {
             }
             .padding()
             .navigationTitle("Interview Focus Lock")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isSettingsPresented = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                    }
+                }
+            }
             .onReceive(timer) { now = $0 }
             .sheet(isPresented: $isQuizPresented) { QuizView() }
             .sheet(isPresented: $isStudyPresented) { StudyModeView() }
             .sheet(isPresented: $isStatsPresented) { StatsView() }
             .sheet(isPresented: $isEditAppsPresented) { AppSelectionView(isInitialSetup: false) }
+            .sheet(isPresented: $isSettingsPresented) { SettingsView() }
         }
     }
 
