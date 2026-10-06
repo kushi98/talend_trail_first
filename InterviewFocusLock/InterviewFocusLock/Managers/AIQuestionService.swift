@@ -17,7 +17,8 @@ final class AIQuestionService {
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
 
     private var model: String {
-        UserDefaults.standard.string(forKey: "aiModelID") ?? Self.defaultModel
+        let configuredModel = UserDefaults.standard.string(forKey: "aiModelID") ?? Self.defaultModel
+        return configuredModel == "claude-fable-5" ? "claude-fable-5-1" : configuredModel
     }
 
     func generateQuestion(
