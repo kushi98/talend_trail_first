@@ -99,7 +99,7 @@ InterviewFocusLock/
 
 - Settings (gear icon) lets you paste your **own** Anthropic API key and pick a
   model (`claude-sonnet-5` by default; `claude-opus-4-8`, `claude-haiku-4-5`,
-  and `claude-fable-5` are also selectable).
+  and `claude-fable-5-1` are also selectable).
 - The key is saved only in the iOS **Keychain** via `KeychainStore` - it is
   never written to `UserDefaults`, never logged, never committed to git, and
   never leaves the device except in the direct HTTPS call to

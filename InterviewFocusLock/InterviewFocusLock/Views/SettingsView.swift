@@ -3,10 +3,13 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var apiKey: String = KeychainStore.loadAPIKey() ?? ""
-    @State private var selectedModel: String = UserDefaults.standard.string(forKey: "aiModelID") ?? Self.models.first!
+    @State private var selectedModel: String = {
+        let savedModel = UserDefaults.standard.string(forKey: "aiModelID")
+        return savedModel == "claude-fable-5" ? "claude-fable-5-1" : savedModel ?? Self.models.first!
+    }()
     @State private var savedMessage: String?
 
-    private static let models = ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001", "claude-fable-5"]
+    private static let models = ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001", "claude-fable-5-1"]
 
     var body: some View {
         NavigationStack {
